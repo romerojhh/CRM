@@ -1,0 +1,62 @@
+services:
+  db:
+    image: mariadb:11
+    container_name: churchcrm_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-StrongRootPass123}
+      MYSQL_DATABASE: churchcrm
+      MYSQL_USER: churchcrmuser
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-StrongUserPass123}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - churchcrm_net
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb -uroot -p$MYSQL_ROOT_PASSWORD -e 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - CHURCHCRM_VERSION=${CHURCHCRM_VERSION:-7.0.2}
+    container_name: churchcrm_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_NAME: churchcrm
+      DB_USER: churchcrmuser
+      DB_PASSWORD: ${MYSQL_PASSWORD:-StrongUserPass123}
+    ports:
+      - "8080:80"
+    volumes:
+      - data_include:/var/www/html/Include
+      - data_images:/var/www/html/Images
+    networks:
+      - churchcrm_net
+
+  adminer:
+    image: adminer
+    ports:
+      - "8081:8080"
+    networks:
+    - churchcrm_net
+
+volumes:
+  db_data:
+  data_include:
+  data_images:
+
+networks:
+  churchcrm_net:
